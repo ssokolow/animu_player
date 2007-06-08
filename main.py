@@ -3,17 +3,17 @@
 TODO:
 - I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
-- Build up a mapping table linking MPlayer names to keycodes.
 """
 
 TICK_INTERVAL = 500
 START_SIZE = (640, 480)
 
+# Note: "f" is 102 and "q" is 113 but those shouldn't be necessary.
 keySyms={
 		32: "SPACE",
-		102: "f",
-		113: "q",
+		35: "SHARP",
 		65288: "BS",
+		65289: "TAB",
 		65293: "ENTER",
 		65307: "ESC",
 		65360: "HOME",
@@ -21,8 +21,38 @@ keySyms={
 		65362: "UP",
 		65363: "RIGHT",
 		65364: "DOWN",
+		65365: "PGUP",
+		65366: "PGDWN",
 		65367: "END",
 		65379: "INS",
+		65421: "KP_ENTER",
+		65438: "KP_INS",
+		65439: "KP_DEL",
+		65454: "KP_DEC",
+		65456: "KP0",
+		65457: "KP0",
+		65458: "KP1",
+		65459: "KP2",
+		65460: "KP3",
+		65461: "KP4",
+		65462: "KP5",
+		65463: "KP6",
+		65464: "KP7",
+		65465: "KP8",
+		65466: "KP9",
+		65470: "F1",
+		65471: "F2",
+		65472: "F3",
+		65473: "F4",
+		65474: "F5",
+		65475: "F6",
+		65476: "F7",
+		65477: "F8",
+		65478: "F9",
+		65479: "F10",
+		65480: "F11",
+		65481: "F12",
+		65507: "CTRL",
 		65535: "DEL"
 		}
 
@@ -85,12 +115,13 @@ class Player(object):
 		if keySyms.has_key(event.keyval):
 			key = keySyms[event.keyval]
 		else:
-			print "\n\nUnknown KeySym: ", event.keyval, "\n\n"			
 			key = event.string
 			
 		if self.keyConfig.has_key(key):
 			action = self.keyConfig[key]
-			if action == 'quit':
+			if action.startswith('pt_'):
+				pass	# FIXME: Allowing pt_* commands through will fool the "have they finished watching it" check.
+			elif action == 'quit':
 				self.window.destroy()
 			elif action == 'vo_fullscreen':
 				if self.fullscreen == False:
