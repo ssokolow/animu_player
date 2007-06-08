@@ -2,17 +2,17 @@
 """Animu Player v0.1
 By: Stephan Sokolow (deitarion/SSokolow)
 
-A minimal but pleasantly helpful PyGTK wrapper for MPlayer.
+A minimal but pleasantly helpful PyGTK wrapper for MPlayer. You have to try it to understand how nice it is. :)
 
 TODO:
 - Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
-- Add an option to skip to the next song with/without adding the current one to the list of watched things.
+- Add an option to skip to the next episode with/without adding the current one to the list of watched things.
 - Do more code clean-up.
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
 	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
 	- http://www.pygtk.org/docs/pygtk/class-gdkevent.html
 - Smart sorting (identify numbering order correctly even if not zero-padded)
-- Figure out how to get [the stupid] gtk.AspectFrame to pick up the aspect ratio from MPlayer.
+- Figure out how to get the [stupid] gtk.AspectFrame to pick up the aspect ratio from MPlayer.
 - I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
 """
 
@@ -23,6 +23,7 @@ __license__ = "GNU GPL 2 or later"
 TICK_INTERVAL = 500
 START_SIZE = (640, 480)
 DEFAULT_ASPECT = 1.333
+DEFAULT_BGCOLOR = "black"
 
 # Note: "f" is 102 and "q" is 113 but those shouldn't be necessary.
 keySyms={
@@ -107,8 +108,8 @@ class Player(object):
 		self.window.set_icon_name('video')
 		self.window.set_default_size(*START_SIZE)
 		self.window.set_position(gtk.WIN_POS_CENTER)
-		self.window.set_title("Animu Player")
-		self.window.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("black"))
+		self.window.set_title(__appname__)
+		self.window.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse(DEFAULT_BGCOLOR))
 		
 		self.aspect = gtk.AspectFrame(ratio=aspect, obey_child=False)
 		
@@ -128,10 +129,13 @@ class Player(object):
 		self.cb_tick()
 		gobject.timeout_add(TICK_INTERVAL, self.cb_tick)
 
-	def cb_window_close(self, widget, data=None):
+	def kill_player():
 		if not self.child.poll():
 			os.kill(self.child.pid, signal.SIGTERM)
-			self.child.wait()
+			self.child.wait()		
+
+	def cb_window_close(self, widget, data=None):
+		self.kill_player()
 		gtk.main_quit()
 
 	def cb_key_press(self, widget, event, data=None):
@@ -143,8 +147,13 @@ class Player(object):
 			
 		if self.keyConfig.has_key(key):
 			action = self.keyConfig[key]
-			if action.startswith('pt_'):
-				pass	# FIXME: Allowing pt_* commands through will fool the "have they finished watching it" check.
+			if action.startswith('pt_step') or action.startswith('pt_up_step'):
+				temp = action.split()
+				if len(temp) > 1:
+					changeVal = temp[1]
+					pass # TODO: Go back or forward according to changeVal without marking the current thing as read.
+				else:
+					pass # Invalid, but we don't want to crash
 			elif action == 'quit':
 				self.window.destroy()
 			elif action == 'vo_fullscreen':
@@ -178,7 +187,7 @@ class Player(object):
 
 def get_watched_list():
 	playedListFile = file(os.path.expanduser("~/.config/animu_played"), 'a+')
-	return playedListFile.read().split('\n') #FIXME: This should be a list, not a journal.
+	return playedListFile.read().split('\n')
 
 def get_unplayed_contents(folderPath):
 	playedList = get_watched_list()
@@ -204,32 +213,37 @@ def play(entries, playAll=False, aspect=DEFAULT_ASPECT):
 	else:
 		gtk.MessageDialog(type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK, message_format="No un-watched episodes found.").run()
 
+def getFolder():
+		"""Display a GTK directory chooser. Return a path if the user clicks OK or None if they click Cancel."""
+		dirPicker = gtk.FileChooserDialog("Select Series Directory", None, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+		                                  (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+		if dirPicker.run() == gtk.RESPONSE_ACCEPT:
+			path = dirPicker.get_filename()
+		else:
+			path = None
+		dirPicker.destroy()
+		return path
+
 if __name__ == '__main__':
 	parser = OptionParser()
 	parser.add_option("-D", "--force-dir", action="store_true", dest="force_dir", default=False,
 	                  help="If a given path points to a filename, handle it's parent directory instead.")
 	parser.add_option("-a", "--play-all", action="store_true", dest="play_all", default=False,
 	                  help="Don't skip files which have already been watched before.")
-	parser.add_option("-A", "--aspect-ratio", action="store", dest="aspect_ratio", default=DEFAULT_ASPECT,
-                      help="Set a non-default aspect ratio since gtk.Socket is too brain-damaged to listen to MPlayer.")
+	parser.add_option("-A", "--aspect-ratio", action="store", dest="aspect_ratio", default=DEFAULT_ASPECT, metavar="RATIO",
+	                  help="Set RATIO as the aspect ratio. (Default is %s) Autodetection is currently broken since gtk.Socket is too brain-damaged to listen to MPlayer." % DEFAULT_ASPECT)
 	
 	(opts, args) = parser.parse_args()
 
 	if opts.force_dir:
-		args2 = []
-		for arg in args:
-			while not os.path.isdir(arg):
-				arg = os.path.split(arg)[0]
-			args2.append(arg)
-		args = args2
+		for pos, val in args:
+			while not os.path.isdir(val):
+				args[pos] = os.path.split(val)[0]
 	
 	if len(args):
 		play(args, playAll=opts.play_all, aspect=opts.aspect_ratio)
 	else:
-		dirPicker = gtk.FileChooserDialog("Select Series Directory", None, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-		                                  (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-		if dirPicker.run() == gtk.RESPONSE_ACCEPT:
-			chosenDir = dirPicker.get_filename()
-			dirPicker.destroy()
-			play(chosenDir, playAll=opts.play_all, aspect=opts.aspect_ratio)
+		path = getFolder()
+		if path:
+			play(path, playAll=opts.play_all, aspect=opts.aspect_ratio)
 
