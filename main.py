@@ -1,13 +1,23 @@
 #!/usr/bin/env python
-"""
+"""Animu Player v0.1
+By: Stephan Sokolow (deitarion/SSokolow)
+
+A minimal but pleasantly helpful PyGTK wrapper for MPlayer.
+
 TODO:
-- Add code to allow auto-skipping of intros.
-- Fix up the sys.argv code to work better than "just OK".
+- Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
+- Add an option to skip to the next song with/without adding the current one to the list of watched things.
+- Things shouldn't be added to the "watched" list more than once.
+- Do more code clean-up.
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
 	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
 	- http://www.pygtk.org/docs/pygtk/class-gdkevent.html
 - I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
 """
+
+__appname__ = "Animu Player"
+__appver__  = 0.1
+__license__ = "GNU GPL 2 or later"
 
 TICK_INTERVAL = 500
 START_SIZE = (640, 480)
@@ -62,6 +72,7 @@ keySyms={
 
 # Python stdlib imports
 import os, signal, subprocess, sys
+from optparse import OptionParser
 
 # PyGTK imports
 import pygtk
@@ -157,38 +168,55 @@ class Player(object):
 				gtk.main_quit()
 		return True
 
-def get_unplayed_contents(folderPath):
+def get_watched_list():
 	playedListFile = file(os.path.expanduser("~/.config/animu_played"), 'a+')
-	playedList = playedListFile.read().split('\n') #FIXME: This should be a list, not a journal.
+	return playedListFile.read().split('\n') #FIXME: This should be a list, not a journal.
+
+def get_unplayed_contents(folderPath):
+	playedList = get_watched_list()
 	return [os.path.join(folderPath, x) for x in sorted(os.listdir(folderPath)) if not x in playedList]
 
-def playDirectory(dirPath):
-	playlist = get_unplayed_contents(dirPath)
+def play(entries):
+	if isinstance(entries, basestring):
+		entries = [entries]
+		
+	playlist = []
+	for entry in entries:
+		if os.path.isdir(entry):
+			playlist += get_unplayed_contents(entry)
+		else:
+			playlist.append(entry)
+	
 	if playlist:
 		pl = Player(playlist)
 		gtk.main()
 	else:
 		gtk.MessageDialog(type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK, message_format="No un-watched episodes found.").run()
-		
 
-# Start the playing
-if len(sys.argv) >= 3 and '--force-dir' in sys.argv:
-	sys.argv.remove('--force-dir')
+if __name__ == '__main__':
+	parser = OptionParser()
+	parser.add_option("-D", "--force-dir", action="store_true", dest="force_dir", default=False,
+	                  help="If a given path points to a filename, handle it's parent directory instead.")
+	parser.add_option("-A", "--play-all", action="store_true", dest="play_all", default=False,
+	                  help="Don't skip files which have already been watched before.")
 	
-	temp = sys.argv[1]
-	while not os.path.isdir(temp):
-		temp = os.path.split(temp)[0]
-	playDirectory(temp)
-elif len(sys.argv) >= 2:
-	if os.path.isdir(sys.argv[1]):
-		playDirectory(sys.argv[1])
+	(opts, args) = parser.parse_args()
+
+	if opts.force_dir:
+		args2 = []
+		for arg in args:
+			while not os.path.isdir(arg):
+				arg = os.path.split(arg)[0]
+			args2.append(arg)
+		args = args2
+	
+	if len(args):
+		play(args)
 	else:
-		pl = Player(sys.argv[1:])
-		gtk.main()
-else:
-	dirPicker = gtk.FileChooserDialog("Select Series Directory", None, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-	                                  (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-	if dirPicker.run() == gtk.RESPONSE_ACCEPT:
-		chosenDir = dirPicker.get_filename()
-		dirPicker.destroy()
-		playDirectory(chosenDir)
+		dirPicker = gtk.FileChooserDialog("Select Series Directory", None, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+		                                  (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+		if dirPicker.run() == gtk.RESPONSE_ACCEPT:
+			chosenDir = dirPicker.get_filename()
+			dirPicker.destroy()
+			play(chosenDir)
+
