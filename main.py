@@ -23,6 +23,7 @@ There are a few known bugs, but nothing major:
 - If you mix and match your MPlayer fullscreen keybinding and your Window Manager fullscreen keybinding, you may have to
   press the MPlayer binding twice to get it to work. This is because it does not yet recognize state changes initiated by
   the window manager.
+- Rolling the scroll wheel quickly doesn't produce as many MPlayer seeks as it should.
 
 System Requirements:
 - A UNIX-like operating system. (eg. Linux, *BSD, etc.)
@@ -156,7 +157,7 @@ class Player(object):
 		self.cb_tick()
 		gobject.timeout_add(TICK_INTERVAL, self.cb_tick)
 
-	def kill_player():
+	def kill_player(self):
 		if not self.child.poll():
 			os.kill(self.child.pid, signal.SIGTERM)
 			self.child.wait()		
@@ -166,7 +167,6 @@ class Player(object):
 		gtk.main_quit()
 
 	def cb_key_press(self, widget, event, data=None):
-		#self.child.stdin.write(event.string)
 		if keySyms.has_key(event.keyval):
 			key = keySyms[event.keyval]
 		else:
