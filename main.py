@@ -1,33 +1,70 @@
 #!/usr/bin/python
+"""
+TODO:
+- Use window.set_title() to set the Window title to the filename of the video being played.
 
-import string
+"""
 
+TICK_INTERVAL = 300
+START_SIZE = (640, 480)
+
+# Python stdlib imports
+import os, signal, subprocess, sys
+
+# PyGTK imports
 import pygtk
 pygtk.require('2.0')
-import gtk,sys
+import gobject, gtk
 
-# Set up the window
-window = gtk.Window()
-window.set_default_size(640,480)
-window.show()
+from subprocess import Popen, PIPE
 
-socket = gtk.Socket()
-socket.show()
-window.add(socket)
+class Player(object):
+	def __init__(self, playlist):
+		self.playlist = playlist
+		self.filepath, self.child = '', None
+	
+		# Set up the window
+		self.window = gtk.Window()
+		self.window.set_position(gtk.WIN_POS_CENTER)
+		self.window.set_default_size(*START_SIZE)
+		self.window.set_icon_name('video')
+		self.window.show()
 
-print "Socket ID=", socket.get_id()
-window.connect("destroy", gtk.mainquit)
+		# Set up the XEmbed socket
+		self.socket = gtk.Socket()
+		self.window.add(self.socket)
+		self.socket.show()
 
-def cb_key_press(widget, event, data):
-    print event #TODO: Hand the data off to the child MPlayer process.
+		# Connect the callbacks
+		self.window.connect("destroy", self.cb_window_close)
+		self.window.connect("key_press_event", self.cb_key_press)
 
-def plugged_event(widget):
-    print "I (",widget,") have just had a plug inserted!" 
+		# Start playback and hook the monitor pseudo-thread
+		self.cb_tick()
+		gobject.timeout_add(TICK_INTERVAL, self.cb_tick)
 
-socket.connect("plug-added", plugged_event)
-window.connect("key_press_event", cb_key_press)
+	def cb_window_close(self, widget, data=None):
+		if not self.child.poll():
+			os.kill(self.child.pid, signal.SIGTERM)
+		gtk.main_quit()
 
-if len(sys.argv) == 2:
-    socket.add_id(long(sys.argv[1]))
+	def cb_key_press(self, widget, event, data=None):
+		self.child.stdin.write(event.string)
 
-gtk.main()
+	def cb_tick(self, data=None):
+		if not self.child or self.child.poll() is not None:
+			# None = still running, negative = terminated by signal, positive = exit code
+			if self.playlist:
+				self.filepath, sockId = os.path.abspath(self.playlist.pop(0)), str(self.socket.get_id())
+				self.window.set_title(os.path.split(self.filepath)[1])
+				self.child = Popen(["mplayer", "-wid", sockId, self.filepath], stdin=PIPE)
+			else:
+				gtk.main_quit()
+		return True
+
+# Start the playing
+if len(sys.argv) >= 2:
+	pl = Player(sys.argv[1:])
+	gtk.main()
+else:
+	print "ERR: No files specified"
