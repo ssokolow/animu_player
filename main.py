@@ -25,12 +25,11 @@ class Player(object):
 	
 		# Set up the window
 		self.window = gtk.Window()
-		self.window.set_position(gtk.WIN_POS_CENTER)
-		self.window.set_default_size(*START_SIZE)
 		self.window.set_icon_name('video')
+		self.window.set_default_size(*START_SIZE)
+		self.window.set_position(gtk.WIN_POS_CENTER)
 		self.window.show()
-
-		# Set up the XEmbed socket
+		
 		self.socket = gtk.Socket()
 		self.window.add(self.socket)
 		self.socket.show()
@@ -55,12 +54,19 @@ class Player(object):
 		if not self.child or self.child.poll() is not None:
 			# None = still running, negative = terminated by signal, positive = exit code
 			if self.playlist:
-				self.filepath, sockId = os.path.abspath(self.playlist.pop(0)), str(self.socket.get_id())
-				self.window.set_title(os.path.split(self.filepath)[1])
+				self.filepath = os.path.abspath(os.path.normpath(self.playlist.pop(0)))
+				self.filename, sockId = os.path.split(self.filepath)[1], str(self.socket.get_id())
+				
+				self.window.set_title(self.filename)
 				self.child = Popen(["mplayer", "-wid", sockId, self.filepath], stdin=PIPE)
 			else:
 				gtk.main_quit()
 		return True
+
+def get_unplayed_contents(folderPath):
+	playedListFile = file(os.path.expanduser("~/.config/animu_played"), 'a+')
+	playedList = playedListFile.read().split('\n') #FIXME: This should be a list, not a journal.
+	return [os.path.join(folderPath, x) for x in sorted(os.listdir(folderPath) if not os.path.join(folderPath, x) in playedList]
 
 # Start the playing
 if len(sys.argv) >= 2:
