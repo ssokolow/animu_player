@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """
 TODO:
-- I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
+- Add code to allow auto-skipping of intros.
+- Fix up the sys.argv code to work better than "just OK".
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
 	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
 	- http://www.pygtk.org/docs/pygtk/class-gdkevent.html
-- Fix up the sys.argv code to work better than "just OK".
+- I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
 """
 
 TICK_INTERVAL = 500
@@ -93,6 +94,7 @@ class Player(object):
 		self.window.set_icon_name('video')
 		self.window.set_default_size(*START_SIZE)
 		self.window.set_position(gtk.WIN_POS_CENTER)
+		self.window.set_title("Animu Player")
 		self.window.show()
 		
 		self.socket = gtk.Socket()
