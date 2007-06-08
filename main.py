@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Animu Player v0.1
+"""Animu Player v0.2
 By: Stephan Sokolow (deitarion/SSokolow)
 
 Animu Player is a minimal but pleasantly helpful PyGTK wrapper for MPlayer. I'd try to convince you about it's benefits, 
@@ -19,7 +19,8 @@ Examples include:
 - Reading the ~/.mplayer/input.conf file to duplicate the key bindings provided by your un-wrapped MPlayer binary.
 
 There are a few known bugs, but nothing major:
-- Aspect ratio auto-detection is currently broken. Default is 4:3.
+- Aspect ratio auto-detection is currently somewhat broken so the default is to pad out the video feed with black bars.
+  However, my personal favorite is to manually use --aspect-ratio so the frame will fit the video, rather than the screen.
 - If you mix and match your MPlayer fullscreen keybinding and your Window Manager fullscreen keybinding, you may have to
   press the MPlayer binding twice to get it to work. This is because it does not yet recognize state changes initiated by
   the window manager.
@@ -35,8 +36,10 @@ System Requirements:
 For further instruction, please use the --help option. Enjoy. :)
 
 TODO:
+- A proper ratio parser for the aspect ratio option.
 - Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
 - Add an option to skip to the next episode with/without adding the current one to the list of watched things.
+- Add some options to provide shorthand access to various types of post-processing filters.
 - Do more code clean-up.
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
 	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
@@ -44,14 +47,18 @@ TODO:
 - Smart sorting (identify numbering order correctly even if not zero-padded)
 """
 
+from __future__ import division
+
 __appname__ = "Animu Player"
-__appver__  = 0.1
+__appver__  = 0.2
 __license__ = "GNU GPL 2 or later"
 
-TICK_INTERVAL = 500
-START_SIZE = (640, 480)
-DEFAULT_ASPECT = 1.333
+TICK_INTERVAL = 500 # Checks every half a second to see if the current video finished playing.
+START_SIZE = 640 # Width. Height is obtained via aspect ratio calculation.
 DEFAULT_BGCOLOR = "black"
+
+mplayerCmd = ["mplayer", "-slave", "-wid", "%(wid)s", "%(path)s"]
+mplayerCmdAspect = ["mplayer", "-slave", "-vf", "expand=:::::%(padAspect)s", "-wid", "%(wid)s", "%(path)s"]
 
 # Note: "f" is 102 and "q" is 113 but those shouldn't be necessary.
 keySyms={
@@ -123,23 +130,29 @@ def loadMplayerInputConf():
 	return {}
 
 class Player(object):
-	def __init__(self, playlist, aspect=DEFAULT_ASPECT):
+	def __init__(self, playlist, aspect=None):
 		self.playlist = playlist
 		self.filename, self.filepath = "", ''
 		self.child, self.fullscreen = None, False
 		
 		# Load the keyboard config
 		self.keyConfig = loadMplayerInputConf()
+
+		if aspect:
+			self.frameAspect, self.padAspect = aspect, None
+		else:
+			_mg = gtk.gdk.screen_get_default().get_monitor_geometry(1) #FIXME: Grab the proper monitor.
+			self.frameAspect = self.padAspect = (_mg.width / _mg.height)
 	
 		# Set up the window
 		self.window = gtk.Window()
 		self.window.set_icon_name('video')
-		self.window.set_default_size(*START_SIZE)
+		self.window.set_default_size(START_SIZE, START_SIZE / self.frameAspect)
 		self.window.set_position(gtk.WIN_POS_CENTER)
 		self.window.set_title(__appname__)
 		self.window.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse(DEFAULT_BGCOLOR))
 		
-		self.aspect = gtk.AspectFrame(ratio=aspect, obey_child=False)
+		self.aspect = gtk.AspectFrame(ratio=self.frameAspect, obey_child=False)
 		
 		self.socket = gtk.Socket()
 		self.aspect.add(self.socket)
@@ -207,10 +220,17 @@ class Player(object):
 				self.filename, sockId = os.path.split(self.filepath)[1], str(self.socket.get_id())
 				
 				self.window.set_title(self.filename)
-				self.child = Popen(["mplayer", "-slave", "-wid", sockId, self.filepath], stdin=PIPE)
+				vals = {'padAspect':self.padAspect, 'wid':sockId, 'path':self.filepath}
+				if self.padAspect:
+					self.child = callChild(mplayerCmdAspect, vals)
+				else:
+					self.child = callChild(mplayerCmd, vals)
 			else:
 				gtk.main_quit()
 		return True
+
+def callChild(args, vals):
+	return Popen([x % vals for x in args], stdin=PIPE)
 
 def get_watched_list():
 	playedListFile = file(os.path.expanduser("~/.config/animu_played"), 'a+')
@@ -220,7 +240,7 @@ def get_unplayed_contents(folderPath):
 	playedList = get_watched_list()
 	return [os.path.join(folderPath, x) for x in sorted(os.listdir(folderPath)) if not x in playedList]
 
-def play(entries, playAll=False, aspect=DEFAULT_ASPECT):
+def play(entries, playAll=False, aspect=None):
 	if isinstance(entries, basestring):
 		entries = [entries]
 		
@@ -257,8 +277,8 @@ if __name__ == '__main__':
 	                  help="If a given path points to a filename, handle it's parent directory instead.")
 	parser.add_option("-a", "--play-all", action="store_true", dest="play_all", default=False,
 	                  help="Don't skip files which have already been watched before.")
-	parser.add_option("-A", "--aspect-ratio", action="store", dest="aspect_ratio", default=DEFAULT_ASPECT, metavar="RATIO",
-	                  help="Set RATIO as the aspect ratio. (Default is %s) Autodetection is currently broken since gtk.Socket is too brain-damaged to listen to MPlayer." % DEFAULT_ASPECT)
+	parser.add_option("-A", "--aspect-ratio", action="store", dest="aspect_ratio", default=None, metavar="RATIO", type=float,
+	                  help="Set RATIO as the aspect ratio. This is my preferred alternative to letting MPlayer pad the video frame but it's not automatic.")
 	
 	(opts, args) = parser.parse_args()
 
@@ -267,10 +287,9 @@ if __name__ == '__main__':
 			while not os.path.isdir(val):
 				args[pos] = os.path.split(val)[0]
 	
+	if not len(args):
+		path = getFolder()
+		if path: args.append(path)
 	if len(args):
 		play(args, playAll=opts.play_all, aspect=opts.aspect_ratio)
-	else:
-		path = getFolder()
-		if path:
-			play(path, playAll=opts.play_all, aspect=opts.aspect_ratio)
 
