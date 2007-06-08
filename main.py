@@ -3,6 +3,9 @@
 TODO:
 - I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
+	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
+	- http://www.pygtk.org/docs/pygtk/class-gdkevent.html
+- Fix up the sys.argv code to work better than "just OK".
 """
 
 TICK_INTERVAL = 500
@@ -175,8 +178,11 @@ if len(sys.argv) >= 3 and '--force-dir' in sys.argv:
 		temp = os.path.split(temp)[0]
 	playDirectory(temp)
 elif len(sys.argv) >= 2:
-	pl = Player(sys.argv[1:])
-	gtk.main()
+	if os.path.isdir(sys.argv[1]):
+		playDirectory(sys.argv[1])
+	else:
+		pl = Player(sys.argv[1:])
+		gtk.main()
 else:
 	dirPicker = gtk.FileChooserDialog("Select Series Directory", None, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
 	                                  (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
