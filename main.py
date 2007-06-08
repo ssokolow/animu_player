@@ -66,11 +66,18 @@ class Player(object):
 def get_unplayed_contents(folderPath):
 	playedListFile = file(os.path.expanduser("~/.config/animu_played"), 'a+')
 	playedList = playedListFile.read().split('\n') #FIXME: This should be a list, not a journal.
-	return [os.path.join(folderPath, x) for x in sorted(os.listdir(folderPath) if not os.path.join(folderPath, x) in playedList]
+	return [os.path.join(folderPath, x) for x in sorted(os.listdir(folderPath)) if not os.path.join(folderPath, x) in playedList]
 
 # Start the playing
 if len(sys.argv) >= 2:
 	pl = Player(sys.argv[1:])
 	gtk.main()
 else:
-	print "ERR: No files specified"
+	dirPicker = gtk.FileChooserDialog("Select Series Directory", None, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+	                                  (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+	if dirPicker.run() == gtk.RESPONSE_ACCEPT:
+		chosenDir = dirPicker.get_filename()
+		dirPicker.destroy()
+		
+		pl = Player(get_unplayed_contents(chosenDir))
+		gtk.main()
