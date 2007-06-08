@@ -2,7 +2,36 @@
 """Animu Player v0.1
 By: Stephan Sokolow (deitarion/SSokolow)
 
-A minimal but pleasantly helpful PyGTK wrapper for MPlayer. You have to try it to understand how nice it is. :)
+Animu Player is a minimal but pleasantly helpful PyGTK wrapper for MPlayer. I'd try to convince you about it's benefits, 
+but you have to try it to understand how nice it is. Unfortunately, some of the nicest improvements in software can come
+from a collection of small changes.
+
+Examples include:
+- Remembering which video files you've already played and skipping them.
+- Retaining window dimensions and state between video files.
+- Putting the filename in the window title and giving it a proper icon.
+- Automatically advancing to the next file when the current one finishes.
+- Drawing a fine, simple, and eye-pleasing border around the video frame.
+- Displaying a directory chooser if no arguments are specified so that one may run the program from a menu entry or desktop icon.
+- Offering a --force-dir option which prunes the file portion off given paths to enable users to set Animu Player as their
+  double-click action for video files while still retaining directory-oriented features such as ignoring files that have already
+  been watched before.
+- Reading the ~/.mplayer/input.conf file to duplicate the key bindings provided by your un-wrapped MPlayer binary.
+
+There are a few known bugs, but nothing major:
+- Aspect ratio auto-detection is currently broken. Default is 4:3.
+- If you mix and match your MPlayer fullscreen keybinding and your Window Manager fullscreen keybinding, you may have to
+  press the MPlayer binding twice to get it to work. This is because it does not yet recognize state changes initiated by
+  the window manager.
+
+System Requirements:
+- A UNIX-like operating system. (eg. Linux, *BSD, etc.)
+- An X11 server with the XEmbed extension (eg. X.org, XFree86)
+- Python 2.4 or higher
+- A reasonably recent version of PyGTK. (I don't have time to figure out the exact version at the moment)
+- MPlayer (In the path and named "mplayer")
+
+For further instruction, please use the --help option. Enjoy. :)
 
 TODO:
 - Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
@@ -12,8 +41,6 @@ TODO:
 	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
 	- http://www.pygtk.org/docs/pygtk/class-gdkevent.html
 - Smart sorting (identify numbering order correctly even if not zero-padded)
-- Figure out how to get the [stupid] gtk.AspectFrame to pick up the aspect ratio from MPlayer.
-- I'm not sure what caused it, but something can cause the GUI on this to crash without taking MPlayer along.
 """
 
 __appname__ = "Animu Player"
