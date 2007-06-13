@@ -36,8 +36,12 @@ System Requirements:
 For further instruction, please use the --help option. Enjoy. :)
 
 TODO:
+- Add a mode which allows Animu Player to be a used as a playlist generator for any self-GUIing player which can auto-exit.
+- Do some experimentation and brainstorming on the idea of a minimally invasive pop-up guide to keyboard bindings.
 - Some kind of bookmarking system and some optimizations for accessing removable media.
-- A --recursive option which swaps out os.listdir() in favor of os.walk().
+	- Some kind of quick GUI menu for when no args are provided.
+	- Check whether the given device is mounted (using HAL?) and automount it if need be. (how?)
+	- <toxik> deitarion: anyway, when you're done with whatever you're doing, give me a message, I'm interested
 - A proper ratio parser for the aspect ratio option.
 - Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
 - Add an option to skip to the next episode with/without adding the current one to the list of watched things.
@@ -59,6 +63,8 @@ __license__ = "GNU GPL 2 or later"
 TICK_INTERVAL = 500 # Checks every half a second to see if the current video finished playing.
 START_SIZE = 640 # Width. Height is obtained via aspect ratio calculation.
 DEFAULT_BGCOLOR = "black"
+
+MEDIA_EXTS = ['.avi','.mov', '.mpeg', '.mpg', '.mkv', '.ogm', '.rmvb', '.wmv']
 
 mplayerCmd = ["mplayer", "-slave", "-wid", "%(wid)s", "%(path)s"]
 mplayerCmdAspect = ["mplayer", "-slave", "-vf", "expand=:::::%(padAspect)s", "-wid", "%(wid)s", "%(path)s"]
@@ -208,7 +214,7 @@ class Player(object):
 					self.fullscreen = False #FIXME: This doesn't track WM-based changes.
 			else:
 				self.child.stdin.write("%s\n" % action)
-		else:
+		elif key:
 			print "\rNo Binding for '%s'\n" % key
 
 	def cb_tick(self, data=None):
@@ -239,9 +245,18 @@ def get_watched_list():
 	playedListFile = file(os.path.expanduser("~/.config/animu_played"), 'a+')
 	return playedListFile.read().split('\n')
 
-def get_unplayed_contents(folderPath):
+def unplayed_only(playlist):
 	playedList = get_watched_list()
-	return [os.path.join(folderPath, x) for x in sorted(os.listdir(folderPath)) if not x in playedList]
+	return [x for x in playlist if not os.path.split(x)[1] in playedList]
+
+def get_media_files(rootPath):
+	media_files = []
+	for fldr in os.walk(rootPath):
+		fldr[1].sort() # Ensure sorted-order recursive subdirectory traversal.
+		for filename in sorted(fldr[2]):
+			if os.path.splitext(filename)[1] in MEDIA_EXTS:	#FIXME: Detect by headers, not exts.
+				media_files.append(os.path.join(fldr[0], filename))
+	return media_files
 
 def play(entries, playAll=False, aspect=None):
 	if isinstance(entries, basestring):
@@ -250,14 +265,13 @@ def play(entries, playAll=False, aspect=None):
 	playlist = []
 	for entry in entries:
 		if os.path.isdir(entry):
-			if playAll:
-				playlist += [os.path.join(entry, x) for x in os.listdir(entry)]
-			else:
-				playlist += get_unplayed_contents(entry)
+			playlist += get_media_files(entry)
 		else:
 			playlist.append(entry)
 	
 	if playlist:
+		if not playAll:
+			playlist = unplayed_only(playlist)
 		pl = Player(playlist, aspect=aspect)
 		gtk.main()
 	else:
