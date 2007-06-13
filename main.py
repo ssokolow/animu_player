@@ -36,10 +36,13 @@ System Requirements:
 For further instruction, please use the --help option. Enjoy. :)
 
 TODO:
+- Some kind of bookmarking system and some optimizations for accessing removable media.
+- A --recursive option which swaps out os.listdir() in favor of os.walk().
 - A proper ratio parser for the aspect ratio option.
 - Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
 - Add an option to skip to the next episode with/without adding the current one to the list of watched things.
 - Add some options to provide shorthand access to various types of post-processing filters.
+- Design and add a better GTK+ directory opened dialog for this purpose.
 - Do more code clean-up.
 - Figure out how the heck to set up a proper fullscreen/unfullscreen toggle using PyGTK's wonky methods and events.
 	- http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
@@ -147,7 +150,7 @@ class Player(object):
 		# Set up the window
 		self.window = gtk.Window()
 		self.window.set_icon_name('video')
-		self.window.set_default_size(START_SIZE, START_SIZE / self.frameAspect)
+		self.window.set_default_size(int(START_SIZE), int(START_SIZE / self.frameAspect))
 		self.window.set_position(gtk.WIN_POS_CENTER)
 		self.window.set_title(__appname__)
 		self.window.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse(DEFAULT_BGCOLOR))
