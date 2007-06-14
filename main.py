@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Animu Player v0.2
+"""Animu Player v0.3
 By: Stephan Sokolow (deitarion/SSokolow)
 
 Animu Player is a minimal but pleasantly helpful PyGTK wrapper for MPlayer. I'd try to convince you about it's benefits, 
@@ -18,13 +18,19 @@ Examples include:
   been watched before.
 - Reading the ~/.mplayer/input.conf file to duplicate the key bindings provided by your un-wrapped MPlayer binary.
 
-There are a few known bugs, but nothing major:
+There are a few known bugs, but only the first one is anything near major:
+- The wmv9dmo codec and XEmbed don't get along, resulting in the red color channel being misaligned. Thankfully, I can't think
+  of any anime which is encoded in wmv9. (It's all MPEG, DivX/XviD, H.264, FLV, or RMVB as far as I know)
 - Aspect ratio auto-detection is currently somewhat broken so the default is to pad out the video feed with black bars.
   However, my personal favorite is to manually use --aspect-ratio so the frame will fit the video, rather than the screen.
 - If you mix and match your MPlayer fullscreen keybinding and your Window Manager fullscreen keybinding, you may have to
   press the MPlayer binding twice to get it to work. This is because it does not yet recognize state changes initiated by
   the window manager.
 - Rolling the scroll wheel quickly doesn't produce as many MPlayer seeks as it should.
+- Binding the fullscreen toggle to a mouse button doesn't work because those events are sent directly to MPlayer and MPlayer has
+  no control over it's window state when wrapped via XEmbed.
+- For some reason, MPlayer will sometimes send the wrong-sized video stream. Toggling fullscreen or resizing the window will
+  fix this but I'm not sure where the bug lies except that it's somehow related to my use of XEmbed.
 
 System Requirements:
 - A UNIX-like operating system. (eg. Linux, *BSD, etc.)
@@ -33,15 +39,21 @@ System Requirements:
 - A reasonably recent version of PyGTK. (I don't have time to figure out the exact version at the moment)
 - MPlayer (In the path and named "mplayer")
 
+PLANNED Optional Requirements:
+- python-dbus (Minimum version unknown) and HAL 0.5.7.1 or newer (Untested on older versions)
+
 For further instruction, please use the --help option. Enjoy. :)
 
 TODO:
+- Split Animu Player into multiple files. (Perhaps main, PlayFrame, DirSelector (two GTK+ Windows), and MPlayerWrapper?)
+- Ensure that optical drives have spun up before un-pausing.
+- Add a .desktop file which associates Animu Player with inode/directory and an install script to set it up.
 - Add a mode which allows Animu Player to be a used as a playlist generator for any self-GUIing player which can auto-exit.
 - Do some experimentation and brainstorming on the idea of a minimally invasive pop-up guide to keyboard bindings.
 - Some kind of bookmarking system and some optimizations for accessing removable media.
 	- Some kind of quick GUI menu for when no args are provided.
-	- Check whether the given device is mounted (using HAL?) and automount it if need be. (how?)
-	- <toxik> deitarion: anyway, when you're done with whatever you're doing, give me a message, I'm interested
+	- Check whether the given device is mounted using HAL and automount it if need be.
+		- Look up the proper method for retrieving the user-specified mountpoint via HAL or some other D-Bus service.
 - A proper ratio parser for the aspect ratio option.
 - Add code to allow auto-skipping of intros. (default to 0:00-1:30 unless reset)
 - Add an option to skip to the next episode with/without adding the current one to the list of watched things.
@@ -57,14 +69,14 @@ TODO:
 from __future__ import division
 
 __appname__ = "Animu Player"
-__appver__  = 0.2
+__appver__  = "0.3"
 __license__ = "GNU GPL 2 or later"
 
 TICK_INTERVAL = 500 # Checks every half a second to see if the current video finished playing.
 START_SIZE = 640 # Width. Height is obtained via aspect ratio calculation.
 DEFAULT_BGCOLOR = "black"
 
-MEDIA_EXTS = ['.avi','.mov', '.mpeg', '.mpg', '.mkv', '.ogm', '.rmvb', '.wmv']
+MEDIA_EXTS = ['.avi', '.flv', '.mov', '.mpeg', '.mpg', '.mkv', '.ogm', '.rmvb', '.wmv']
 
 mplayerCmd = ["mplayer", "-slave", "-wid", "%(wid)s", "%(path)s"]
 mplayerCmdAspect = ["mplayer", "-slave", "-vf", "expand=:::::%(padAspect)s", "-wid", "%(wid)s", "%(path)s"]
@@ -269,9 +281,10 @@ def play(entries, playAll=False, aspect=None):
 		else:
 			playlist.append(entry)
 	
-	if playlist:
-		if not playAll:
+	if playlist and not playAll:
 			playlist = unplayed_only(playlist)
+
+	if playlist:
 		pl = Player(playlist, aspect=aspect)
 		gtk.main()
 	else:
