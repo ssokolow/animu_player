@@ -266,7 +266,7 @@ def get_media_files(rootPath):
 	for fldr in os.walk(rootPath):
 		fldr[1].sort() # Ensure sorted-order recursive subdirectory traversal.
 		for filename in sorted(fldr[2]):
-			if os.path.splitext(filename)[1] in MEDIA_EXTS:	#FIXME: Detect by headers, not exts.
+			if os.path.splitext(filename)[1].lower() in MEDIA_EXTS:	#FIXME: Detect by headers, not exts.
 				media_files.append(os.path.join(fldr[0], filename))
 	return media_files
 
