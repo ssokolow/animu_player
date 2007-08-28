@@ -15,8 +15,9 @@ DEFAULT_BGCOLOR = "black"
 
 MEDIA_EXTS = ['.avi', '.flv', '.mov', '.mpeg', '.mpg', '.mkv', '.ogm', '.rmvb', '.wmv']
 
-mplayerCmd = ["mplayer", "-slave", "-wid", "%(wid)s", "%(path)s"]
-mplayerCmdAspect = ["mplayer", "-slave", "-vf", "expand=:::::%(padAspect)s", "-wid", "%(wid)s", "%(path)s"]
+mplayerPath = "mplayer"
+mplayerCmd = ["-slave", "-wid", "%(wid)s", "%(path)s"]
+mplayerCmdAspect = ["-slave", "-vf", "expand=:::::%(padAspect)s", "-wid", "%(wid)s", "%(path)s"]
 
 # Note: "f" is 102 and "q" is 113 but those shouldn't be necessary.
 keySyms={
@@ -180,9 +181,9 @@ class Player(object):
 				self.window.set_title(self.filename)
 				vals = {'padAspect':self.padAspect, 'wid':sockId, 'path':self.filepath}
 				if self.padAspect:
-					self.child = callChild(mplayerCmdAspect, vals)
+					self.child = callChild([mplayerPath] + mplayerCmdAspect, vals)
 				else:
-					self.child = callChild(mplayerCmd, vals)
+					self.child = callChild([mplayerPath] + mplayerCmd, vals)
 			else:
 				gtk.main_quit()
 		return True
@@ -246,8 +247,11 @@ if __name__ == '__main__':
 	                  help="Don't skip files which have already been watched before.")
 	parser.add_option("-A", "--aspect-ratio", action="store", dest="aspect_ratio", default=None, metavar="RATIO", type=float,
 	                  help="Set RATIO as the aspect ratio. This is my preferred alternative to letting MPlayer pad the video frame but it's not automatic.")
+	parser.add_option("--mplayer-path", action="store", dest="mplayer_path", default=mplayerPath, metavar="PATH",
+	                  help="Set the path to the mplayer binary which animu player will use. Useful for using 32-bit mplayer-bin for win32codecs on a 64-bit platform.")
 	
 	(opts, args) = parser.parse_args()
+	mplayerPath = opts.mplayer_path
 
 	if opts.force_dir:
 		for pos, val in args:
