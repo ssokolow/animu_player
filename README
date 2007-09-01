@@ -63,4 +63,13 @@ TODO:
     - http://www.pygtk.org/docs/pygtk/class-gtkwidget.html#signal-gtkwidget--window-state-event
     - http://www.pygtk.org/docs/pygtk/class-gdkevent.html
 - Smart sorting (identify numbering order correctly even if not zero-padded)
+- Add support for my new LIRC-handled remote
+    - Add an optional dependency on pylirc
+    - Add support for auto-detecting all the anime available
+        - Add a config-file list of directories to search
+        - Add a regex matcher and some other simple logic to identify series
+        - Add a "channel up/down" API for switching between detected series
+        - Revamp the completion detector so it works with MPlayer's LIRC binding and remembers where you left off
+        - Add a --lirc command-line option which triggers all this
+        - Add an animu_* set of directives in ~/.mplayer/input.conf to control LIRC bindings for animu player-specific stuff.
 
